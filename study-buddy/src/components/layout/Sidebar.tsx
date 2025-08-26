@@ -24,11 +24,21 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [user, setUser] = useState<UserType | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebar_collapsed');
+      return saved === 'true';
+    }
+    return false;
+  });
 
   useEffect(() => {
     setUser(StorageManager.getUser());
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('sidebar_collapsed', isCollapsed.toString());
+  }, [isCollapsed]);
 
   const menuItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
@@ -131,7 +141,10 @@ export default function Sidebar() {
                         }
                         ${isCollapsed ? 'justify-center' : ''}
                       `}
-                      onClick={() => setIsMobileOpen(false)}
+                      onClick={() => {
+                        // Only close mobile menu, don't affect collapsed state on desktop
+                        setIsMobileOpen(false);
+                      }}
                       title={isCollapsed ? item.label : ''}
                     >
                       <Icon size={18} className="flex-shrink-0" />
@@ -147,7 +160,6 @@ export default function Sidebar() {
           <div className="p-4 border-t border-gray-200">
             <button
               onClick={() => {
-                StorageManager.clearAllData();
                 window.location.href = '/';
               }}
               className={`
