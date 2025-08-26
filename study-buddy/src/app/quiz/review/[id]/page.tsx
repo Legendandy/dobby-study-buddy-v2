@@ -16,13 +16,18 @@ import {
   BookOpen
 } from 'lucide-react';
 
+// Extended type to include userAnswers if it's not in the base QuizAttempt type
+interface ExtendedQuizAttempt extends QuizAttempt {
+  userAnswers?: Record<string, string | number>;
+}
+
 export default function QuizReviewPage() {
   const router = useRouter();
   const params = useParams();
   const quizId = params?.id as string;
 
   const [user, setUser] = useState<User | null>(null);
-  const [quizAttempt, setQuizAttempt] = useState<QuizAttempt | null>(null);
+  const [quizAttempt, setQuizAttempt] = useState<ExtendedQuizAttempt | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,7 +58,7 @@ export default function QuizReviewPage() {
       const foundQuiz = history.find(q => q.id === quizId);
       if (foundQuiz) {
         console.log('Found quiz in history:', foundQuiz);
-        setQuizAttempt(foundQuiz);
+        setQuizAttempt(foundQuiz as ExtendedQuizAttempt);
       } else {
         console.error('Quiz not found in history');
         // Navigate back to history if quiz not found
@@ -203,12 +208,13 @@ export default function QuizReviewPage() {
 
             <div className="divide-y divide-gray-200">
               {quizAttempt.questions && quizAttempt.questions.length > 0 ? (
-                quizAttempt.questions.map((question, index) => {
-                  const userAnswer = quizAttempt.userAnswers?.[question.id];
-                  const isCorrect = userAnswer === question.correctAnswer;
+                quizAttempt.questions.map((question: any, index: number) => {
+                  // Safely access userAnswers with optional chaining and fallback
+                  const userAnswer = quizAttempt.userAnswers?.[question.id] || null;
+                  const isCorrect = userAnswer !== null && userAnswer === question.correctAnswer;
                   
                   return (
-                    <div key={question.id} className="p-6">
+                    <div key={question.id || `question-${index}`} className="p-6">
                       <div className="flex items-start space-x-4">
                         <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                           isCorrect ? 'bg-green-100' : 'bg-red-100'
@@ -234,7 +240,7 @@ export default function QuizReviewPage() {
                           
                           <p className="text-gray-800 mb-3">{question.question}</p>
                           
-                          {userAnswer && (
+                          {userAnswer !== null && (
                             <div className="mb-2">
                               <span className="text-sm font-medium text-gray-600">Your Answer: </span>
                               <span className={`text-sm ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
@@ -243,7 +249,7 @@ export default function QuizReviewPage() {
                             </div>
                           )}
                           
-                          {!isCorrect && (
+                          {!isCorrect && question.correctAnswer && (
                             <div className="mb-2">
                               <span className="text-sm font-medium text-gray-600">Correct Answer: </span>
                               <span className="text-sm text-green-600">{question.correctAnswer}</span>
@@ -254,6 +260,12 @@ export default function QuizReviewPage() {
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
                               <span className="text-sm font-medium text-blue-800">Explanation: </span>
                               <span className="text-sm text-blue-700">{question.explanation}</span>
+                            </div>
+                          )}
+                          
+                          {userAnswer === null && (
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-3">
+                              <span className="text-sm text-gray-600 italic">No answer recorded for this question.</span>
                             </div>
                           )}
                         </div>
