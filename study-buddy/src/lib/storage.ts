@@ -74,26 +74,23 @@ export class StorageManager {
       console.error('Failed to save quiz attempt:', error);
       // Fallback: try to save without the large data fields but preserve essential structure
       try {
-        // Cast to any to handle potential missing properties safely
-        const attemptAny = attempt as any;
-        const lightAttempt = {
+        const lightAttempt: QuizAttempt = {
           id: attempt.id,
           quizId: attempt.quizId,
           userId: attempt.userId,
-          // Fix: Keep both field names for compatibility
           answers: attempt.answers,
-          userAnswers: attemptAny.userAnswers || attempt.answers,  // Ensure userAnswers exists
-          // Keep questions but maybe limit them
           questions: attempt.questions,
           score: attempt.score,
           totalQuestions: attempt.totalQuestions,
           timeSpent: attempt.timeSpent,
           xpEarned: attempt.xpEarned,
           completedAt: attempt.completedAt,
+          results: attempt.results || [], // Include required results property
+          settings: attempt.settings || {}, // Include required settings property
         };
         
         const history = this.getQuizHistory();
-        history.unshift(lightAttempt as QuizAttempt);
+        history.unshift(lightAttempt);
         const trimmedHistory = history.slice(0, 50);
         
         if (typeof window !== 'undefined') {
@@ -103,23 +100,23 @@ export class StorageManager {
         console.error('Failed to save even lightweight quiz attempt:', fallbackError);
         // Last resort: save minimal data but ensure compatibility
         try {
-          const attemptAny = attempt as any;
-          const minimalAttempt = {
+          const minimalAttempt: QuizAttempt = {
             id: attempt.id,
             quizId: attempt.quizId || '',
             userId: attempt.userId,
             answers: attempt.answers || {},
-            userAnswers: attemptAny.userAnswers || attempt.answers || {},
             questions: attempt.questions || [],
             score: attempt.score,
             totalQuestions: attempt.totalQuestions,
             timeSpent: attempt.timeSpent,
             xpEarned: attempt.xpEarned,
             completedAt: attempt.completedAt,
+            results: attempt.results || [], // Include required results property
+            settings: attempt.settings || {}, // Include required settings property
           };
           
           const history = this.getQuizHistory();
-          history.unshift(minimalAttempt as QuizAttempt);
+          history.unshift(minimalAttempt);
           const trimmedHistory = history.slice(0, 30); // Reduce to 30 for space
           
           if (typeof window !== 'undefined') {
@@ -142,9 +139,11 @@ export class StorageManager {
           // Fix: Ensure backward compatibility by normalizing data structure
           return history.map((attempt: any) => ({
             ...attempt,
-            // If userAnswers doesn't exist but answers does, use answers
-            userAnswers: attempt.userAnswers || attempt.answers || {},
+            // Ensure all required properties exist
+            answers: attempt.answers || {},
             questions: attempt.questions || [],
+            results: attempt.results || [],
+            settings: attempt.settings || {},
           }));
         }
       }
@@ -156,8 +155,10 @@ export class StorageManager {
       // Apply same normalization for cookie data
       return history.map((attempt: any) => ({
         ...attempt,
-        userAnswers: attempt.userAnswers || attempt.answers || {},
+        answers: attempt.answers || {},
         questions: attempt.questions || [],
+        results: attempt.results || [],
+        settings: attempt.settings || {},
       }));
     } catch {
       return [];
