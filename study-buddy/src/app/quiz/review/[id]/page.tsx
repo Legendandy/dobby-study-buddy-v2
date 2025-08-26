@@ -16,18 +16,13 @@ import {
   BookOpen
 } from 'lucide-react';
 
-// Extended type to include userAnswers if it's not in the base QuizAttempt type
-interface ExtendedQuizAttempt extends QuizAttempt {
-  userAnswers?: Record<string, string | number>;
-}
-
 export default function QuizReviewPage() {
   const router = useRouter();
   const params = useParams();
   const quizId = params?.id as string;
 
   const [user, setUser] = useState<User | null>(null);
-  const [quizAttempt, setQuizAttempt] = useState<ExtendedQuizAttempt | null>(null);
+  const [quizAttempt, setQuizAttempt] = useState<QuizAttempt | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,7 +53,7 @@ export default function QuizReviewPage() {
       const foundQuiz = history.find(q => q.id === quizId);
       if (foundQuiz) {
         console.log('Found quiz in history:', foundQuiz);
-        setQuizAttempt(foundQuiz as ExtendedQuizAttempt);
+        setQuizAttempt(foundQuiz);
       } else {
         console.error('Quiz not found in history');
         // Navigate back to history if quiz not found
@@ -209,9 +204,21 @@ export default function QuizReviewPage() {
             <div className="divide-y divide-gray-200">
               {quizAttempt.questions && quizAttempt.questions.length > 0 ? (
                 quizAttempt.questions.map((question: any, index: number) => {
-                  // Safely access userAnswers with optional chaining and fallback
-                  const userAnswer = quizAttempt.userAnswers?.[question.id] || null;
+                  // Try to get user answer from multiple possible sources
+                  const userAnswer = quizAttempt.answers?.[question.id] || 
+                                   (quizAttempt as any).userAnswers?.[question.id] || 
+                                   null;
+                  
                   const isCorrect = userAnswer !== null && userAnswer === question.correctAnswer;
+                  
+                  // Debug logging
+                  console.log(`Question ${index + 1}:`, {
+                    questionId: question.id,
+                    userAnswer,
+                    correctAnswer: question.correctAnswer,
+                    allAnswers: quizAttempt.answers,
+                    userAnswers: (quizAttempt as any).userAnswers
+                  });
                   
                   return (
                     <div key={question.id || `question-${index}`} className="p-6">
@@ -240,12 +247,16 @@ export default function QuizReviewPage() {
                           
                           <p className="text-gray-800 mb-3">{question.question}</p>
                           
-                          {userAnswer !== null && (
+                          {userAnswer !== null ? (
                             <div className="mb-2">
                               <span className="text-sm font-medium text-gray-600">Your Answer: </span>
                               <span className={`text-sm ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
                                 {userAnswer}
                               </span>
+                            </div>
+                          ) : (
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
+                              <span className="text-sm text-gray-600 italic">No answer recorded for this question.</span>
                             </div>
                           )}
                           
@@ -260,12 +271,6 @@ export default function QuizReviewPage() {
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
                               <span className="text-sm font-medium text-blue-800">Explanation: </span>
                               <span className="text-sm text-blue-700">{question.explanation}</span>
-                            </div>
-                          )}
-                          
-                          {userAnswer === null && (
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-3">
-                              <span className="text-sm text-gray-600 italic">No answer recorded for this question.</span>
                             </div>
                           )}
                         </div>
@@ -284,6 +289,21 @@ export default function QuizReviewPage() {
               )}
             </div>
           </div>
+
+          {/* Debug Information - Remove this in production */}
+          {process.env.NODE_ENV === 'development' && quizAttempt && (
+            <div className="bg-gray-100 rounded-xl p-4 mt-8">
+              <h3 className="font-semibold mb-2">Debug Information:</h3>
+              <pre className="text-xs overflow-auto">
+                {JSON.stringify({
+                  answers: quizAttempt.answers,
+                  userAnswers: (quizAttempt as any).userAnswers,
+                  questionsCount: quizAttempt.questions?.length,
+                  firstQuestionId: quizAttempt.questions?.[0]?.id
+                }, null, 2)}
+              </pre>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-center mt-8">
