@@ -141,7 +141,7 @@ Return JSON with exactly ${questionsNeeded} unique questions.`
       const aiResponse = data.choices[0].message.content;
 
       // Parse the response
-      let parsedResponse;
+      let parsedResponse: any;
       try {
         let cleanedResponse = aiResponse.trim();
         
@@ -225,7 +225,8 @@ Return JSON with exactly ${questionsNeeded} unique questions.`
             continue;
           }
           
-          validQuestion.options = q.options.slice(0, 4).map(opt => opt.trim());
+          // Fix: Add explicit type assertion for the options array
+          validQuestion.options = (q.options as string[]).slice(0, 4).map((opt: string) => opt.trim());
           
           // Find matching option for correct answer
           const matchingOption = validQuestion.options.find(option => 
