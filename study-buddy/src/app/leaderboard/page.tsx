@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
 import { StorageManager } from '@/lib/storage';
 import type { User, LeaderboardEntry } from '@/lib/types';
@@ -13,7 +14,8 @@ import {
   TrendingUp,
   Users,
   Target,
-  Zap
+  Zap,
+  ArrowLeft
 } from 'lucide-react';
 
 export default function LeaderboardPage() {
@@ -106,6 +108,17 @@ export default function LeaderboardPage() {
       
       <div className="flex-1 overflow-auto">
         <div className="max-w-4xl mx-auto p-8">
+          {/* Back Button */}
+          <div className="mb-6">
+            <Link 
+              href="/dashboard"
+              className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeft size={20} className="mr-2" />
+              Back to Dashboard
+            </Link>
+          </div>
+
           {/* Header */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full mb-4">

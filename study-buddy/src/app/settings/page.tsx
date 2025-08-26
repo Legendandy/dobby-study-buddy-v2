@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
 import { StorageManager } from '@/lib/storage';
 import type { User } from '@/lib/types';
@@ -15,7 +16,8 @@ import {
   AlertTriangle,
   Save,
   Moon,
-  Sun
+  Sun,
+  ArrowLeft
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -120,6 +122,17 @@ export default function SettingsPage() {
       
       <div className="flex-1 overflow-auto">
         <div className="max-w-4xl mx-auto p-8">
+          {/* Back Button */}
+          <div className="mb-6">
+            <Link 
+              href="/dashboard"
+              className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeft size={20} className="mr-2" />
+              Back to Dashboard
+            </Link>
+          </div>
+
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>

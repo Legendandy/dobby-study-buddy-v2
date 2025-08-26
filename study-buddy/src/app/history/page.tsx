@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
 import { StorageManager } from '@/lib/storage';
 import type { User, QuizAttempt } from '@/lib/types';
@@ -14,7 +15,8 @@ import {
   ChevronRight,
   TrendingUp,
   Filter,
-  Search
+  Search,
+  ArrowLeft
 } from 'lucide-react';
 
 export default function HistoryPage() {
@@ -115,6 +117,17 @@ export default function HistoryPage() {
       
       <div className="flex-1 overflow-auto">
         <div className="max-w-6xl mx-auto p-8">
+          {/* Back Button */}
+          <div className="mb-6">
+            <Link 
+              href="/dashboard"
+              className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeft size={20} className="mr-2" />
+              Back to Dashboard
+            </Link>
+          </div>
+
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Quiz History</h1>

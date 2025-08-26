@@ -16,7 +16,8 @@ import {
   RotateCcw,
   Home,
   TrendingUp,
-  Award
+  Award,
+  ArrowLeft
 } from 'lucide-react';
 
 interface QuizResults {
@@ -113,6 +114,17 @@ export default function QuizResultsPage() {
       
       <div className="flex-1 overflow-auto">
         <div className="max-w-4xl mx-auto p-8">
+          {/* Back Button */}
+          <div className="mb-6">
+            <Link 
+              href="/dashboard"
+              className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeft size={20} className="mr-2" />
+              Back to Dashboard
+            </Link>
+          </div>
+
           {/* Header */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mb-4">
