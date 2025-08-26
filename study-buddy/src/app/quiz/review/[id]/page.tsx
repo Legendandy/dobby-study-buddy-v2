@@ -209,7 +209,10 @@ export default function QuizReviewPage() {
                                    (quizAttempt as any).userAnswers?.[question.id] || 
                                    null;
                   
-                  const isCorrect = userAnswer !== null && userAnswer === question.correctAnswer;
+                  // Improved answer comparison - case insensitive and trimmed
+                  const isCorrect = userAnswer !== null && 
+                    userAnswer.toString().toLowerCase().trim() === 
+                    question.correctAnswer.toString().toLowerCase().trim();
                   
                   // Debug logging
                   console.log(`Question ${index + 1}:`, {
