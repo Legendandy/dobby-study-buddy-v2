@@ -19,7 +19,7 @@ import {
 
 export default function Homepage() {
   const router = useRouter();
-  const [openFaq, setOpenFaq] = useState(null);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   useEffect(() => {
     // Redirect to dashboard if already onboarded
@@ -28,7 +28,7 @@ export default function Homepage() {
     }
   }, [router]);
 
-  const toggleFaq = (index) => {
+  const toggleFaq = (index: number) => {
     setOpenFaq(openFaq === index ? null : index);
   };
 
