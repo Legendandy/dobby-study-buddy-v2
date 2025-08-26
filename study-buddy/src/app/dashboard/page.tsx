@@ -19,6 +19,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [recentQuizzes, setRecentQuizzes] = useState<QuizAttempt[]>([]);
+  const [totalQuizzes, setTotalQuizzes] = useState(0);
+  const [quizzesThisWeek, setQuizzesThisWeek] = useState(0);
 
   useEffect(() => {
     const currentUser = StorageManager.getUser();
@@ -27,7 +29,23 @@ export default function DashboardPage() {
       return;
     }
     setUser(currentUser);
-    setRecentQuizzes(StorageManager.getQuizHistory().slice(0, 3));
+
+    // Get all quiz history
+    const allQuizzes = StorageManager.getQuizHistory();
+    
+    // Set total count
+    setTotalQuizzes(allQuizzes.length);
+    
+    // Set recent quizzes (last 3)
+    setRecentQuizzes(allQuizzes.slice(0, 3));
+    
+    // Calculate quizzes completed this week
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const thisWeekCount = allQuizzes.filter(quiz => 
+      new Date(quiz.completedAt) > weekAgo
+    ).length;
+    setQuizzesThisWeek(thisWeekCount);
   }, [router]);
 
   if (!user) return null;
@@ -41,7 +59,7 @@ export default function DashboardPage() {
     },
     {
       label: 'Quizzes Completed',
-      value: recentQuizzes.length,
+      value: totalQuizzes,
       icon: Target,
       color: 'bg-green-500',
     },
@@ -53,11 +71,7 @@ export default function DashboardPage() {
     },
     {
       label: 'This Week',
-      value: recentQuizzes.filter(quiz => {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return new Date(quiz.completedAt) > weekAgo;
-      }).length,
+      value: quizzesThisWeek,
       icon: Clock,
       color: 'bg-purple-500',
     },

@@ -6,30 +6,24 @@ import Sidebar from '@/components/layout/Sidebar';
 import { StorageManager } from '@/lib/storage';
 import type { User, QuizAttempt } from '@/lib/types';
 import { 
-  ArrowLeft, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+  ArrowLeft,
+  CheckCircle2,
+  XCircle,
+  Clock,
   Award,
   Target,
-  RotateCcw,
+  Calendar,
   BookOpen
 } from 'lucide-react';
 
 export default function QuizReviewPage() {
   const router = useRouter();
   const params = useParams();
+  const quizId = params?.id as string;
+
   const [user, setUser] = useState<User | null>(null);
-  const [quiz, setQuiz] = useState<QuizAttempt | null>(null);
-  const [results, setResults] = useState<Array<{
-    questionId: string;
-    question: string;
-    userAnswer: string;
-    correctAnswer: string;
-    isCorrect: boolean;
-    explanation: string;
-  }>>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [quizAttempt, setQuizAttempt] = useState<QuizAttempt | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const currentUser = StorageManager.getUser();
@@ -39,44 +33,36 @@ export default function QuizReviewPage() {
     }
     setUser(currentUser);
 
-    // Get quiz details from session storage or fetch
-    const storedQuiz = sessionStorage.getItem('viewingQuiz');
-    if (storedQuiz) {
-      const parsedQuiz = JSON.parse(storedQuiz);
-      setQuiz(parsedQuiz);
-      
-      // In a real app, you'd fetch the detailed results from API
-      // For now, we'll simulate the results structure
-      const mockResults = generateMockResults(parsedQuiz);
-      setResults(mockResults);
+    // First, try to get from sessionStorage (when coming from history)
+    const viewingQuiz = sessionStorage.getItem('viewingQuiz');
+    if (viewingQuiz) {
+      try {
+        const quiz = JSON.parse(viewingQuiz);
+        console.log('Loaded quiz from session storage:', quiz);
+        setQuizAttempt(quiz);
+        setLoading(false);
+        return;
+      } catch (error) {
+        console.error('Error parsing viewing quiz:', error);
+      }
+    }
+
+    // Fallback: find the quiz in stored history
+    if (quizId) {
+      const history = StorageManager.getQuizHistory();
+      const foundQuiz = history.find(q => q.id === quizId);
+      if (foundQuiz) {
+        console.log('Found quiz in history:', foundQuiz);
+        setQuizAttempt(foundQuiz);
+      } else {
+        console.error('Quiz not found in history');
+        // Navigate back to history if quiz not found
+        router.push('/history');
+      }
     }
     
-    setIsLoading(false);
-  }, [router, params.id]);
-
-  const generateMockResults = (quizAttempt: QuizAttempt) => {
-    // This would normally come from your API with the actual quiz questions
-    const mockQuestions = Array.from({ length: quizAttempt.totalQuestions }, (_, i) => ({
-      questionId: `q${i + 1}`,
-      question: `Sample Question ${i + 1}: What is the correct answer for this concept?`,
-      userAnswer: Math.random() > 0.3 ? 'User provided answer' : '',
-      correctAnswer: 'The correct answer',
-      isCorrect: Math.random() > 0.3,
-      explanation: `This is the explanation for question ${i + 1}. It provides context about why this is the correct answer and helps reinforce learning.`
-    }));
-
-    // Ensure the correct number of correct answers matches the quiz score
-    let correctCount = 0;
-    return mockQuestions.map((q, i) => {
-      const shouldBeCorrect = correctCount < quizAttempt.score;
-      if (shouldBeCorrect) correctCount++;
-      
-      return {
-        ...q,
-        isCorrect: shouldBeCorrect || (i >= quizAttempt.score && Math.random() > 0.7)
-      };
-    });
-  };
+    setLoading(false);
+  }, [router, quizId]);
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -84,11 +70,15 @@ export default function QuizReviewPage() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const retakeQuiz = () => {
-    router.push('/quiz/create');
+  const getScoreColor = (score: number, total: number) => {
+    const percentage = (score / total) * 100;
+    if (percentage >= 90) return 'text-green-600 bg-green-100';
+    if (percentage >= 70) return 'text-blue-600 bg-blue-100';
+    if (percentage >= 50) return 'text-yellow-600 bg-yellow-100';
+    return 'text-red-600 bg-red-100';
   };
 
-  if (!user || isLoading) {
+  if (loading) {
     return (
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
@@ -102,20 +92,19 @@ export default function QuizReviewPage() {
     );
   }
 
-  if (!quiz) {
+  if (!user || !quizAttempt) {
     return (
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <BookOpen size={48} className="mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Quiz not found</h3>
-            <p className="text-gray-600 mb-4">The quiz you're looking for could not be loaded.</p>
+            <XCircle size={48} className="mx-auto text-red-500 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Quiz Not Found</h3>
+            <p className="text-gray-600 mb-4">Unable to load the requested quiz.</p>
             <button
               onClick={() => router.push('/history')}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
-              <ArrowLeft size={16} className="mr-2" />
               Back to History
             </button>
           </div>
@@ -124,7 +113,7 @@ export default function QuizReviewPage() {
     );
   }
 
-  const percentage = Math.round((quiz.score / quiz.totalQuestions) * 100);
+  const percentage = Math.round((quizAttempt.score / quizAttempt.totalQuestions) * 100);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -136,136 +125,161 @@ export default function QuizReviewPage() {
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={() => router.push('/history')}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
             >
               <ArrowLeft size={20} />
               <span>Back to History</span>
             </button>
             
-            <button
-              onClick={retakeQuiz}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <RotateCcw size={16} />
-              <span>Retake Quiz</span>
-            </button>
+            <div className="text-right">
+              <h1 className="text-2xl font-bold text-gray-900">Quiz Review</h1>
+              <p className="text-gray-600">Quiz #{quizAttempt.id.slice(0, 8)}</p>
+            </div>
           </div>
 
-          {/* Quiz Summary */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Quiz Review: {quiz.id.slice(0, 8)}
-            </h1>
-            
+          {/* Score Overview */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
+            <div className="text-center mb-6">
+              <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full mb-4 ${
+                percentage >= 90 ? 'bg-green-100' :
+                percentage >= 70 ? 'bg-blue-100' :
+                percentage >= 50 ? 'bg-yellow-100' : 'bg-red-100'
+              }`}>
+                <span className={`text-3xl font-bold ${
+                  percentage >= 90 ? 'text-green-600' :
+                  percentage >= 70 ? 'text-blue-600' :
+                  percentage >= 50 ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {percentage}%
+                </span>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                {percentage >= 90 ? 'Excellent!' :
+                 percentage >= 70 ? 'Good Job!' :
+                 percentage >= 50 ? 'Not Bad!' : 'Keep Studying!'}
+              </h2>
+              <p className="text-gray-600">
+                You scored {quizAttempt.score} out of {quizAttempt.totalQuestions} questions correctly
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-2 mx-auto">
-                  <Target className="text-blue-600" size={24} />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{percentage}%</p>
-                <p className="text-gray-600 text-sm">Score</p>
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <Target className="w-6 h-6 mx-auto mb-2 text-blue-600" />
+                <div className="text-sm text-gray-600">Score</div>
+                <div className="text-xl font-bold">{quizAttempt.score}/{quizAttempt.totalQuestions}</div>
               </div>
-              
-              <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-2 mx-auto">
-                  <CheckCircle className="text-green-600" size={24} />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{quiz.score}/{quiz.totalQuestions}</p>
-                <p className="text-gray-600 text-sm">Correct</p>
+
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <Clock className="w-6 h-6 mx-auto mb-2 text-green-600" />
+                <div className="text-sm text-gray-600">Time Spent</div>
+                <div className="text-xl font-bold">{formatTime(quizAttempt.timeSpent)}</div>
               </div>
-              
-              <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-full mb-2 mx-auto">
-                  <Clock className="text-purple-600" size={24} />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{formatTime(quiz.timeSpent)}</p>
-                <p className="text-gray-600 text-sm">Time Spent</p>
+
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <Award className="w-6 h-6 mx-auto mb-2 text-yellow-600" />
+                <div className="text-sm text-gray-600">XP Earned</div>
+                <div className="text-xl font-bold">+{quizAttempt.xpEarned}</div>
               </div>
-              
-              <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 bg-yellow-100 rounded-full mb-2 mx-auto">
-                  <Award className="text-yellow-600" size={24} />
+
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <Calendar className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                <div className="text-sm text-gray-600">Completed</div>
+                <div className="text-xl font-bold">
+                  {new Date(quizAttempt.completedAt).toLocaleDateString()}
                 </div>
-                <p className="text-2xl font-bold text-gray-900">+{quiz.xpEarned}</p>
-                <p className="text-gray-600 text-sm">XP Earned</p>
               </div>
             </div>
           </div>
 
-          {/* Questions Review */}
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-gray-900">Question Review</h2>
-            
-            {results.map((result, index) => (
-              <div
-                key={result.questionId}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
-              >
-                <div className={`p-4 ${result.isCorrect ? 'bg-green-50 border-b border-green-200' : 'bg-red-50 border-b border-red-200'}`}>
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Question {index + 1}</h3>
-                    <div className="flex items-center space-x-2">
-                      {result.isCorrect ? (
-                        <CheckCircle className="text-green-600" size={20} />
-                      ) : (
-                        <XCircle className="text-red-600" size={20} />
-                      )}
-                      <span className={`text-sm font-medium ${result.isCorrect ? 'text-green-700' : 'text-red-700'}`}>
-                        {result.isCorrect ? 'Correct' : 'Incorrect'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="p-6">
-                  <p className="text-gray-900 font-medium mb-4">{result.question}</p>
-                  
-                  <div className="space-y-4">
-                    {result.userAnswer && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 mb-1">Your Answer:</p>
-                        <p className={`p-3 rounded-lg ${result.isCorrect ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
-                          {result.userAnswer}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {!result.isCorrect && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 mb-1">Correct Answer:</p>
-                        <p className="p-3 bg-green-50 text-green-800 rounded-lg">
-                          {result.correctAnswer}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {result.explanation && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 mb-1">Explanation:</p>
-                        <p className="p-3 bg-blue-50 text-blue-800 rounded-lg text-sm">
-                          {result.explanation}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+          {/* Question Review */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <BookOpen className="text-gray-600" size={20} />
+                <h2 className="text-lg font-semibold text-gray-900">Question Review</h2>
               </div>
-            ))}
+            </div>
+
+            <div className="divide-y divide-gray-200">
+              {quizAttempt.questions && quizAttempt.questions.length > 0 ? (
+                quizAttempt.questions.map((question, index) => {
+                  const userAnswer = quizAttempt.userAnswers?.[question.id];
+                  const isCorrect = userAnswer === question.correctAnswer;
+                  
+                  return (
+                    <div key={question.id} className="p-6">
+                      <div className="flex items-start space-x-4">
+                        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                          isCorrect ? 'bg-green-100' : 'bg-red-100'
+                        }`}>
+                          {isCorrect ? (
+                            <CheckCircle2 size={16} className="text-green-600" />
+                          ) : (
+                            <XCircle size={16} className="text-red-600" />
+                          )}
+                        </div>
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h3 className="font-semibold text-gray-900">
+                              Question {index + 1}
+                            </h3>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            }`}>
+                              {isCorrect ? 'Correct' : 'Incorrect'}
+                            </span>
+                          </div>
+                          
+                          <p className="text-gray-800 mb-3">{question.question}</p>
+                          
+                          {userAnswer && (
+                            <div className="mb-2">
+                              <span className="text-sm font-medium text-gray-600">Your Answer: </span>
+                              <span className={`text-sm ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                                {userAnswer}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {!isCorrect && (
+                            <div className="mb-2">
+                              <span className="text-sm font-medium text-gray-600">Correct Answer: </span>
+                              <span className="text-sm text-green-600">{question.correctAnswer}</span>
+                            </div>
+                          )}
+                          
+                          {question.explanation && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
+                              <span className="text-sm font-medium text-blue-800">Explanation: </span>
+                              <span className="text-sm text-blue-700">{question.explanation}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-12 text-center">
+                  <BookOpen size={48} className="mx-auto text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Question Details Available</h3>
+                  <p className="text-gray-600">
+                    Question details are not available for this quiz attempt.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-center space-x-4 mt-8 pt-8 border-t border-gray-200">
+          {/* Actions */}
+          <div className="flex justify-center mt-8">
             <button
-              onClick={() => router.push('/history')}
-              className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              Back to History
-            </button>
-            <button
-              onClick={retakeQuiz}
+              onClick={() => router.push('/quiz/create')}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Take Another Quiz
+              Create New Quiz
             </button>
           </div>
         </div>
