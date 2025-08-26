@@ -17,6 +17,16 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// Add a proper type definition for the question object
+interface Question {
+  id: string;
+  question: string;
+  type: string;
+  options?: string[];
+  correctAnswer: string | number;
+  explanation?: string;
+}
+
 export default function CreateQuizPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -78,10 +88,10 @@ export default function CreateQuizPage() {
       const result = await response.json();
       console.log('API Result:', result);
 
-      // DEBUG: Log each generated question
+      // DEBUG: Log each generated question with proper typing
       if (result.quiz && result.quiz.questions) {
         console.log('Generated Questions:');
-        result.quiz.questions.forEach((q, index) => {
+        result.quiz.questions.forEach((q: Question, index: number) => {
           console.log(`Question ${index + 1}:`, {
             id: q.id,
             question: q.question,
@@ -122,7 +132,7 @@ export default function CreateQuizPage() {
       
     } catch (error) {
       console.error('Quiz generation error:', error);
-      toast.error(`Failed to generate quiz: ${error.message}`);
+      toast.error(`Failed to generate quiz: ${(error as Error).message}`);
     } finally {
       setIsGenerating(false);
     }
