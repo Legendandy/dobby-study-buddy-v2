@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { StorageManager } from '@/lib/storage';
 import type { User, Question, QuizSettings } from '@/lib/types';
@@ -11,7 +11,10 @@ import {
   Flag,
   CheckCircle2,
   AlertCircle,
-  Play
+  Play,
+  Shield,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -25,6 +28,9 @@ export default function TakeQuizPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const quizId = searchParams?.get('id');
+  const pageRef = useRef<HTMLDivElement>(null);
+  const heartbeatRef = useRef<NodeJS.Timeout>();
+  const visibilityCheckRef = useRef<NodeJS.Timeout>();
 
   const [user, setUser] = useState<User | null>(null);
   const [quizData, setQuizData] = useState<QuizData | null>(null);
@@ -35,6 +41,256 @@ export default function TakeQuizPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [showTimeWarning, setShowTimeWarning] = useState(false);
+  const [securityViolations, setSecurityViolations] = useState<string[]>([]);
+  const [isPageVisible, setIsPageVisible] = useState(true);
+  const [suspiciousActivity, setSuspiciousActivity] = useState(0);
+  const [lastActiveTime, setLastActiveTime] = useState(Date.now());
+  const [disableInteractions, setDisableInteractions] = useState(false);
+
+  // More reliable visibility and focus detection
+  useEffect(() => {
+    if (!quizStarted) return;
+
+    let tabSwitchCount = 0;
+    let focusLossCount = 0;
+    const maxViolations = 3;
+
+    // Document visibility API - more reliable
+    const handleVisibilityChange = () => {
+      const isHidden = document.hidden;
+      setIsPageVisible(!isHidden);
+      
+      if (isHidden) {
+        tabSwitchCount++;
+        const violation = `Tab/window switched (${tabSwitchCount})`;
+        setSecurityViolations(prev => [...prev, violation]);
+        
+        if (tabSwitchCount >= maxViolations) {
+          toast.error(`Too many tab switches (${tabSwitchCount}). Submitting quiz automatically.`);
+          setTimeout(() => handleSubmitQuiz(), 1000);
+        } else {
+          toast.error(`Tab switch detected! Warning ${tabSwitchCount}/${maxViolations}`);
+        }
+      }
+    };
+
+    // Window focus/blur - backup detection
+    const handleFocus = () => {
+      setIsPageVisible(true);
+      setLastActiveTime(Date.now());
+    };
+
+    const handleBlur = () => {
+      focusLossCount++;
+      const violation = `Window focus lost (${focusLossCount})`;
+      setSecurityViolations(prev => [...prev, violation]);
+      
+      if (focusLossCount >= maxViolations) {
+        toast.error(`Too many focus losses. Submitting quiz automatically.`);
+        setTimeout(() => handleSubmitQuiz(), 1000);
+      }
+    };
+
+    // Mouse leave detection (when cursor leaves browser window)
+    const handleMouseLeave = (e: MouseEvent) => {
+      if (e.clientY <= 0 || e.clientX <= 0 || 
+          e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+        const violation = `Mouse left browser window`;
+        setSecurityViolations(prev => [...prev, violation]);
+        toast.error('Cursor left browser window - suspicious activity detected');
+        setSuspiciousActivity(prev => prev + 1);
+      }
+    };
+
+    // Prevent right-click more aggressively
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const violation = `Right-click attempted`;
+      setSecurityViolations(prev => [...prev, violation]);
+      toast.error('Right-click is disabled during quiz');
+      return false;
+    };
+
+    // Keyboard event blocking with better detection
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const blockedKeys = [
+        'F12',
+        'F5',
+        'F1', // Help
+        'PrintScreen',
+      ];
+
+      const blockedCombinations = [
+        { ctrl: true, key: 'r' }, // Refresh
+        { ctrl: true, key: 'R' },
+        { ctrl: true, key: 'c' }, // Copy
+        { ctrl: true, key: 'C' },
+        { ctrl: true, key: 'v' }, // Paste
+        { ctrl: true, key: 'V' },
+        { ctrl: true, key: 'a' }, // Select All
+        { ctrl: true, key: 'A' },
+        { ctrl: true, key: 's' }, // Save
+        { ctrl: true, key: 'S' },
+        { ctrl: true, key: 'p' }, // Print
+        { ctrl: true, key: 'P' },
+        { ctrl: true, key: 'u' }, // View Source
+        { ctrl: true, key: 'U' },
+        { ctrl: true, key: 'f' }, // Find
+        { ctrl: true, key: 'F' },
+        { ctrl: true, shift: true, key: 'I' }, // Dev Tools
+        { ctrl: true, shift: true, key: 'i' },
+        { ctrl: true, shift: true, key: 'J' }, // Console
+        { ctrl: true, shift: true, key: 'j' },
+        { ctrl: true, shift: true, key: 'C' }, // Inspector
+        { ctrl: true, shift: true, key: 'c' },
+        { alt: true, key: 'Tab' }, // Alt-Tab
+        { alt: true, key: 'F4' }, // Close window
+      ];
+
+      // Check blocked keys
+      if (blockedKeys.includes(e.key)) {
+        e.preventDefault();
+        e.stopPropagation();
+        const violation = `Blocked key pressed: ${e.key}`;
+        setSecurityViolations(prev => [...prev, violation]);
+        
+        if (e.key === 'F5') {
+          toast.error('Page refresh blocked - submitting quiz');
+          setTimeout(() => handleSubmitQuiz(), 500);
+        } else {
+          toast.error(`Key ${e.key} is blocked during quiz`);
+        }
+        return false;
+      }
+
+      // Check blocked combinations
+      const isBlocked = blockedCombinations.some(combo => {
+        return (!combo.ctrl || e.ctrlKey) && 
+               (!combo.shift || e.shiftKey) && 
+               (!combo.alt || e.altKey) && 
+               combo.key === e.key;
+      });
+
+      if (isBlocked) {
+        e.preventDefault();
+        e.stopPropagation();
+        const violation = `Blocked combination: ${e.ctrlKey ? 'Ctrl+' : ''}${e.shiftKey ? 'Shift+' : ''}${e.altKey ? 'Alt+' : ''}${e.key}`;
+        setSecurityViolations(prev => [...prev, violation]);
+        
+        if ((e.ctrlKey && e.key.toLowerCase() === 'r') || e.key === 'F5') {
+          toast.error('Page refresh blocked - submitting quiz');
+          setTimeout(() => handleSubmitQuiz(), 500);
+        } else {
+          toast.error('This keyboard shortcut is blocked during quiz');
+        }
+        return false;
+      }
+    };
+
+    // Block drag and drop
+    const handleDragStart = (e: DragEvent) => {
+      e.preventDefault();
+      const violation = `Drag operation attempted`;
+      setSecurityViolations(prev => [...prev, violation]);
+    };
+
+    // Block text selection on sensitive areas
+    const handleSelectStart = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target && typeof target.closest === 'function' && target.closest('.quiz-content')) {
+        e.preventDefault();
+        const violation = `Text selection attempted on quiz content`;
+        setSecurityViolations(prev => [...prev, violation]);
+      }
+    };
+
+    // Add event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+    document.addEventListener('mouseleave', handleMouseLeave);
+    document.addEventListener('contextmenu', handleContextMenu, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('dragstart', handleDragStart);
+    document.addEventListener('selectstart', handleSelectStart);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      document.removeEventListener('contextmenu', handleContextMenu, true);
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('dragstart', handleDragStart);
+      document.removeEventListener('selectstart', handleSelectStart);
+    };
+  }, [quizStarted]);
+
+  // Enhanced activity monitoring
+  useEffect(() => {
+    if (!quizStarted) return;
+
+    // Heartbeat to detect if user is still active
+    heartbeatRef.current = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastActivity = now - lastActiveTime;
+      
+      // If no activity for 30 seconds, mark as suspicious
+      if (timeSinceLastActivity > 30000) {
+        const violation = `No activity detected for ${Math.floor(timeSinceLastActivity / 1000)} seconds`;
+        setSecurityViolations(prev => [...prev, violation]);
+        setSuspiciousActivity(prev => prev + 1);
+        setLastActiveTime(now); // Reset to avoid spam
+      }
+    }, 10000); // Check every 10 seconds
+
+    // More frequent visibility checks
+    visibilityCheckRef.current = setInterval(() => {
+      if (document.hidden && isPageVisible) {
+        setIsPageVisible(false);
+      } else if (!document.hidden && !isPageVisible) {
+        setIsPageVisible(true);
+      }
+    }, 1000);
+
+    return () => {
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+      if (visibilityCheckRef.current) clearInterval(visibilityCheckRef.current);
+    };
+  }, [quizStarted, lastActiveTime, isPageVisible]);
+
+  // Track mouse and keyboard activity
+  useEffect(() => {
+    if (!quizStarted) return;
+
+    const updateActivity = () => {
+      setLastActiveTime(Date.now());
+    };
+
+    document.addEventListener('mousemove', updateActivity);
+    document.addEventListener('keypress', updateActivity);
+    document.addEventListener('click', updateActivity);
+    document.addEventListener('scroll', updateActivity);
+
+    return () => {
+      document.removeEventListener('mousemove', updateActivity);
+      document.removeEventListener('keypress', updateActivity);
+      document.removeEventListener('click', updateActivity);
+      document.removeEventListener('scroll', updateActivity);
+    };
+  }, [quizStarted]);
+
+  // Auto-submit on excessive violations
+  useEffect(() => {
+    if (suspiciousActivity >= 5 || securityViolations.length >= 10) {
+      toast.error('Excessive security violations detected. Submitting quiz automatically.');
+      setDisableInteractions(true);
+      setTimeout(() => handleSubmitQuiz(), 2000);
+    }
+  }, [suspiciousActivity, securityViolations]);
 
   // Validate question data
   const validateQuestion = (question: Question, index: number): string[] => {
@@ -150,27 +406,40 @@ export default function TakeQuizPage() {
 
   // Auto-submit when total timer reaches zero
   const handleTimeUp = useCallback(() => {
-    toast.error('Time is up! Submitting quiz automatically.');
-    handleSubmitQuiz();
-  }, []);
+    if (!isSubmitting && quizStarted) {
+      toast.error('Time is up! Submitting quiz automatically.');
+      handleSubmitQuiz();
+    }
+  }, [isSubmitting, quizStarted]);
 
-  // Timer logic - runs for total quiz time
+  // Timer logic with warning
   useEffect(() => {
     if (!quizStarted || !quizData || timeRemaining <= 0) return;
+
+    const totalTime = quizData.questions.length * quizData.settings.timePerQuestion;
+    const warningThreshold = Math.floor(totalTime * 0.25); // 25% remaining
 
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
-          // Timer hit zero, auto-submit quiz
-          setTimeout(handleTimeUp, 100); // Small delay to prevent race conditions
+          setTimeout(handleTimeUp, 100);
           return 0;
         }
+        
+        // Show warning at 25% time remaining
+        if (prev === warningThreshold && !showTimeWarning) {
+          setShowTimeWarning(true);
+          toast.error(`⚠️ Warning: Only ${Math.floor(warningThreshold / 60)} minutes remaining!`, {
+            duration: 5000
+          });
+        }
+        
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [quizStarted, quizData, timeRemaining, handleTimeUp]);
+  }, [quizStarted, quizData, timeRemaining, handleTimeUp, showTimeWarning]);
 
   const startQuiz = () => {
     if (!quizData) return;
@@ -181,12 +450,18 @@ export default function TakeQuizPage() {
     }
     
     console.log('🚀 Starting quiz with', quizData.questions.length, 'questions');
+    
     setQuizStarted(true);
     setStartTime(new Date());
+    setLastActiveTime(Date.now());
+    
+    toast.success('Quiz started!', {
+      duration: 3000
+    });
   };
 
   const handleAnswerChange = (answer: string) => {
-    if (!quizData) return;
+    if (!quizData || disableInteractions) return;
 
     const currentQuestion = quizData.questions[currentQuestionIndex];
     console.log('✏️ Answer changed for question', currentQuestion.id, ':', answer);
@@ -195,21 +470,25 @@ export default function TakeQuizPage() {
       ...prev,
       [currentQuestion.id]: answer
     }));
+    
+    setLastActiveTime(Date.now());
   };
 
   const nextQuestion = useCallback(() => {
-    if (!quizData) return;
+    if (!quizData || disableInteractions) return;
 
     if (currentQuestionIndex < quizData.questions.length - 1) {
       console.log('➡️ Moving to next question:', currentQuestionIndex + 1);
       setCurrentQuestionIndex(prev => prev + 1);
+      setLastActiveTime(Date.now());
     }
-  }, [currentQuestionIndex, quizData]);
+  }, [currentQuestionIndex, quizData, disableInteractions]);
 
   const previousQuestion = () => {
-    if (currentQuestionIndex > 0) {
+    if (currentQuestionIndex > 0 && !disableInteractions) {
       console.log('⬅️ Moving to previous question:', currentQuestionIndex - 1);
       setCurrentQuestionIndex(prev => prev - 1);
+      setLastActiveTime(Date.now());
     }
   };
 
@@ -217,6 +496,7 @@ export default function TakeQuizPage() {
     if (!quizData || !user || !startTime || isSubmitting) return;
 
     console.log('📤 Submitting quiz with answers:', answers);
+    console.log('🔒 Security violations during quiz:', securityViolations);
     setIsSubmitting(true);
     
     try {
@@ -232,6 +512,8 @@ export default function TakeQuizPage() {
           questions: quizData.questions,
           timeSpent,
           settings: quizData.settings,
+          securityViolations,
+          suspiciousActivityCount: suspiciousActivity,
         }),
       });
 
@@ -258,7 +540,7 @@ export default function TakeQuizPage() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [quizData, user, answers, startTime, router, isSubmitting]);
+  }, [quizData, user, answers, startTime, router, isSubmitting, securityViolations, suspiciousActivity]);
 
   if (!user || !quizData) {
     console.log('⏳ Still loading - User:', !!user, 'QuizData:', !!quizData);
@@ -346,18 +628,47 @@ export default function TakeQuizPage() {
             </div>
           </div>
 
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-            <div className="flex items-start space-x-2">
-              <AlertCircle className="text-yellow-600 flex-shrink-0 mt-0.5" size={16} />
-              <div className="text-sm text-yellow-800">
-                <p className="font-medium mb-1">Quiz Rules:</p>
-                <ul className="text-xs space-y-1">
-                  <li>• Total time: {totalTimeInMinutes} minutes for all {quizData.questions.length} questions</li>
-                  <li>• Navigate freely between questions</li>
-                  <li>• Review and change answers anytime</li>
-                  <li>• Quiz auto-submits when timer reaches zero</li>
-                  <li>• Submit manually when you're done</li>
-                </ul>
+          {/* Quiz Rules */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start space-x-2 mb-3">
+              <AlertCircle className="text-blue-600 flex-shrink-0 mt-0.5" size={16} />
+              <h3 className="font-semibold text-blue-800 text-sm">Quiz Rules & Guidelines</h3>
+            </div>
+            
+            <div className="text-xs text-blue-800 space-y-2">
+              <div className="flex items-start space-x-2">
+                <span className="text-blue-600 text-lg leading-none">•</span>
+                <span>Total time: {totalTimeInMinutes} minutes for all {quizData.questions.length} questions</span>
+              </div>
+              
+              <div className="flex items-start space-x-2">
+                <span className="text-blue-600 text-lg leading-none">•</span>
+                <span>Navigate freely between questions and review answers</span>
+              </div>
+              
+              <div className="flex items-start space-x-2">
+                <span className="text-blue-600 text-lg leading-none">•</span>
+                <span>Quiz auto-submits when timer reaches zero</span>
+              </div>
+              
+              <div className="flex items-start space-x-2">
+                <span className="text-blue-600 text-lg leading-none">•</span>
+                <span>Warning notification at 25% time remaining</span>
+              </div>
+              
+              <div className="flex items-start space-x-2">
+                <span className="text-red-600 text-lg leading-none">•</span>
+                <span>Leaving the quiz page will automatically submit your answers</span>
+              </div>
+              
+              <div className="flex items-start space-x-2">
+                <span className="text-red-600 text-lg leading-none">•</span>
+                <span>Right-click, dragging your mouse, and keyboard shortcuts are disabled during quiz</span>
+              </div>
+              
+              <div className="flex items-start space-x-2">
+                <span className="text-red-600 text-lg leading-none">•</span>
+                <span>10 warnings will automatically submit your quiz</span>
               </div>
             </div>
           </div>
@@ -378,16 +689,8 @@ export default function TakeQuizPage() {
   const progress = ((currentQuestionIndex + 1) / quizData.questions.length) * 100;
   const currentAnswer = answers[currentQuestion.id] || '';
 
-  console.log('📖 Displaying question', currentQuestionIndex + 1, ':', {
-    id: currentQuestion.id,
-    type: currentQuestion.type,
-    question: currentQuestion.question.substring(0, 50) + '...',
-    optionsCount: currentQuestion.options?.length,
-    currentAnswer
-  });
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div ref={pageRef} className={`min-h-screen bg-gray-50 ${disableInteractions ? 'pointer-events-none opacity-50' : ''}`}>
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -405,8 +708,18 @@ export default function TakeQuizPage() {
             </div>
 
             <div className="flex items-center space-x-4">
+              {/* Violation Counter */}
+              {securityViolations.length > 0 && (
+                <div className="flex items-center space-x-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs">
+                  <AlertCircle size={12} />
+                  <span>{securityViolations.length} warnings</span>
+                </div>
+              )}
+
               <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
-                timeRemaining <= 60 ? 'bg-red-100 text-red-700 animate-pulse' : 'bg-blue-100 text-blue-700'
+                timeRemaining <= 60 ? 'bg-red-100 text-red-700 animate-pulse' : 
+                timeRemaining <= (quizData.questions.length * quizData.settings.timePerQuestion * 0.25) ? 'bg-yellow-100 text-yellow-700' :
+                'bg-blue-100 text-blue-700'
               }`}>
                 <Clock size={16} />
                 <span className="font-mono font-semibold">
@@ -416,7 +729,7 @@ export default function TakeQuizPage() {
 
               <button
                 onClick={handleSubmitQuiz}
-                disabled={isSubmitting}
+                disabled={isSubmitting || disableInteractions}
                 className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
               >
                 <Flag size={16} />
@@ -429,17 +742,15 @@ export default function TakeQuizPage() {
 
       {/* Question Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 quiz-content">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold text-gray-900">
+            <h2 className="text-2xl font-semibold text-gray-900" style={{ userSelect: 'none' }}>
               {currentQuestion.question}
             </h2>
             <div className="text-sm text-gray-500">
               Total time: {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
             </div>
           </div>
-
-
 
           <div className="space-y-4">
             {currentQuestion.type === 'multiple-choice' && currentQuestion.options && currentQuestion.options.length > 0 && (
@@ -448,11 +759,13 @@ export default function TakeQuizPage() {
                   <button
                     key={index}
                     onClick={() => handleAnswerChange(option)}
-                    className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
+                    disabled={disableInteractions}
+                    className={`w-full p-4 text-left rounded-lg border-2 transition-all disabled:opacity-50 ${
                       currentAnswer === option
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }`}
+                    style={{ userSelect: 'none' }}
                   >
                     <div className="flex items-center space-x-3">
                       <div className={`w-4 h-4 rounded-full border-2 ${
@@ -479,11 +792,13 @@ export default function TakeQuizPage() {
                   <button
                     key={option}
                     onClick={() => handleAnswerChange(option)}
-                    className={`p-6 rounded-lg border-2 transition-all ${
+                    disabled={disableInteractions}
+                    className={`p-6 rounded-lg border-2 transition-all disabled:opacity-50 ${
                       currentAnswer === option
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }`}
+                    style={{ userSelect: 'none' }}
                   >
                     <div className="text-center">
                       <div className="text-2xl mb-2">
@@ -503,7 +818,8 @@ export default function TakeQuizPage() {
                   value={currentAnswer}
                   onChange={(e) => handleAnswerChange(e.target.value)}
                   placeholder="Type your answer here..."
-                  className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                  disabled={disableInteractions}
+                  className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50"
                   autoFocus
                 />
                 <p className="text-sm text-gray-500 mt-2">
@@ -532,7 +848,7 @@ export default function TakeQuizPage() {
         <div className="flex justify-between items-center mt-8">
           <button
             onClick={previousQuestion}
-            disabled={currentQuestionIndex === 0}
+            disabled={currentQuestionIndex === 0 || disableInteractions}
             className="flex items-center space-x-2 px-6 py-3 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ArrowLeft size={20} />
@@ -563,7 +879,7 @@ export default function TakeQuizPage() {
             {currentQuestionIndex === quizData.questions.length - 1 && (
               <button
                 onClick={handleSubmitQuiz}
-                disabled={isSubmitting}
+                disabled={isSubmitting || disableInteractions}
                 className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg hover:from-green-700 hover:to-blue-700 disabled:opacity-50 transition-all"
               >
                 {isSubmitting ? (
@@ -577,7 +893,7 @@ export default function TakeQuizPage() {
             
             <button
               onClick={nextQuestion}
-              disabled={currentQuestionIndex === quizData.questions.length - 1}
+              disabled={currentQuestionIndex === quizData.questions.length - 1 || disableInteractions}
               className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span>Next</span>
@@ -585,6 +901,19 @@ export default function TakeQuizPage() {
             </button>
           </div>
         </div>
+
+        {/* Disabled Overlay */}
+        {disableInteractions && (
+          <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8 text-center max-w-md">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Submitting Quiz</h2>
+              <p className="text-gray-600">
+                Your quiz is being submitted automatically. Please wait...
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
