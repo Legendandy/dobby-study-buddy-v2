@@ -13,23 +13,23 @@ export class XPCalculator {
   ): number {
     let totalXP = 0;
 
-    // Base completion XP
+    
     totalXP += this.BASE_COMPLETION_XP;
 
-    // Correct answer XP
+    
     totalXP += correctAnswers * this.CORRECT_ANSWER_XP;
 
-    // Perfect score bonus
+    
     if (correctAnswers === totalQuestions && totalQuestions > 0) {
       totalXP += this.PERFECT_SCORE_BONUS;
     }
 
-    // Speed bonus (if completed in less than 50% of allowed time)
+    
     if (timeSpent < maxTimeAllowed * this.SPEED_BONUS_THRESHOLD) {
       totalXP += this.SPEED_BONUS_XP;
     }
 
-    // Question quantity bonus (more questions = more XP potential)
+    
     if (totalQuestions >= 20) {
       totalXP += 10;
     } else if (totalQuestions >= 10) {
