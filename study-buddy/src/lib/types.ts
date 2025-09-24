@@ -65,3 +65,26 @@ export interface LeaderboardEntry {
   xp: number;
   quizzesCompleted: number;
 }
+
+// Add these interfaces to your existing lib/types.ts file
+
+export interface StudyNote {
+  id: string;
+  title: string;
+  content: string;
+  query: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResearchRequest {
+  id: string;
+  query: string;
+  userId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  requestedAt: string;
+  completedAt?: string;
+  result?: string;
+  error?: string;
+}

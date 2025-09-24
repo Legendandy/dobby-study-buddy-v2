@@ -1,9 +1,11 @@
-import { User, QuizAttempt } from './types';
+import { User, QuizAttempt, StudyNote, ResearchRequest } from './types';
 
 export const STORAGE_KEYS = {
   USER: 'study_buddy_user',
   QUIZ_HISTORY: 'study_buddy_quiz_history',
   SETTINGS: 'study_buddy_settings',
+  STUDY_NOTES: 'study_buddy_study_notes',
+  RESEARCH_REQUESTS: 'study_buddy_research_requests',
 } as const;
 
 // Simple cookie utilities to replace js-cookie
@@ -163,6 +165,118 @@ export class StorageManager {
     } catch {
       return [];
     }
+  }
+
+  // Study Notes Management
+  static addStudyNote(note: StudyNote): void {
+    try {
+      const notes = this.getStudyNotes();
+      notes.unshift(note);
+      // Keep only last 100 notes
+      const trimmedNotes = notes.slice(0, 100);
+      
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.STUDY_NOTES, JSON.stringify(trimmedNotes));
+      }
+    } catch (error) {
+      console.error('Failed to save study note:', error);
+    }
+  }
+
+  static getStudyNotes(): StudyNote[] {
+    try {
+      if (typeof window !== 'undefined') {
+        const notesStr = localStorage.getItem(STORAGE_KEYS.STUDY_NOTES);
+        if (notesStr) {
+          return JSON.parse(notesStr);
+        }
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  static getStudyNoteById(id: string): StudyNote | null {
+    const notes = this.getStudyNotes();
+    return notes.find(note => note.id === id) || null;
+  }
+
+  static updateStudyNote(updatedNote: StudyNote): void {
+    try {
+      const notes = this.getStudyNotes();
+      const index = notes.findIndex(note => note.id === updatedNote.id);
+      if (index !== -1) {
+        notes[index] = { ...updatedNote, updatedAt: new Date().toISOString() };
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEYS.STUDY_NOTES, JSON.stringify(notes));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update study note:', error);
+    }
+  }
+
+  static deleteStudyNote(id: string): void {
+    try {
+      const notes = this.getStudyNotes();
+      const filteredNotes = notes.filter(note => note.id !== id);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.STUDY_NOTES, JSON.stringify(filteredNotes));
+      }
+    } catch (error) {
+      console.error('Failed to delete study note:', error);
+    }
+  }
+
+  // Research Requests Management (for tracking long-running API calls)
+  static addResearchRequest(request: ResearchRequest): void {
+    try {
+      const requests = this.getResearchRequests();
+      requests.unshift(request);
+      // Keep only last 50 requests
+      const trimmedRequests = requests.slice(0, 50);
+      
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.RESEARCH_REQUESTS, JSON.stringify(trimmedRequests));
+      }
+    } catch (error) {
+      console.error('Failed to save research request:', error);
+    }
+  }
+
+  static getResearchRequests(): ResearchRequest[] {
+    try {
+      if (typeof window !== 'undefined') {
+        const requestsStr = localStorage.getItem(STORAGE_KEYS.RESEARCH_REQUESTS);
+        if (requestsStr) {
+          return JSON.parse(requestsStr);
+        }
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  static updateResearchRequest(updatedRequest: ResearchRequest): void {
+    try {
+      const requests = this.getResearchRequests();
+      const index = requests.findIndex(req => req.id === updatedRequest.id);
+      if (index !== -1) {
+        requests[index] = updatedRequest;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEYS.RESEARCH_REQUESTS, JSON.stringify(requests));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update research request:', error);
+    }
+  }
+
+  static getResearchRequestById(id: string): ResearchRequest | null {
+    const requests = this.getResearchRequests();
+    return requests.find(req => req.id === id) || null;
   }
 
   static clearAllData(): void {
