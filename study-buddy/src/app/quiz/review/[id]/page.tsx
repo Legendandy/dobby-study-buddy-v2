@@ -293,20 +293,7 @@ export default function QuizReviewPage() {
             </div>
           </div>
 
-          {/* Debug Information - Remove this in production */}
-          {process.env.NODE_ENV === 'development' && quizAttempt && (
-            <div className="bg-gray-100 rounded-xl p-4 mt-8">
-              <h3 className="font-semibold mb-2">Debug Information:</h3>
-              <pre className="text-xs overflow-auto">
-                {JSON.stringify({
-                  answers: quizAttempt.answers,
-                  userAnswers: (quizAttempt as any).userAnswers,
-                  questionsCount: quizAttempt.questions?.length,
-                  firstQuestionId: quizAttempt.questions?.[0]?.id
-                }, null, 2)}
-              </pre>
-            </div>
-          )}
+         
 
           {/* Actions */}
           <div className="flex justify-center mt-8">

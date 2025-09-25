@@ -8,6 +8,7 @@ import {
   User, 
   Settings, 
   History, 
+  FileText,
   Trophy, 
   LogOut,
   Menu,
@@ -42,9 +43,10 @@ export default function Sidebar() {
 
   const menuItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
+    { href: '/study-notes', label: 'Study Notes', icon: FileText },
+    { href: '/history', label: 'Quiz History', icon: History },
     { href: '/profile', label: 'Profile', icon: User },
     { href: '/settings', label: 'Settings', icon: Settings },
-    { href: '/history', label: 'Quiz History', icon: History },
     { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   ];
 

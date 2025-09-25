@@ -13,7 +13,9 @@ import {
   Clock,
   Hash,
   Type,
-  MessageSquare
+  MessageSquare,
+  CheckCircle,
+  RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -31,6 +33,7 @@ export default function CreateQuizPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [notes, setNotes] = useState('');
+  const [hasImportedNotes, setHasImportedNotes] = useState(false);
   const [settings, setSettings] = useState<QuizSettings>({
     questionType: 'mixed',
     maxQuestions: 10,
@@ -47,7 +50,23 @@ export default function CreateQuizPage() {
       return;
     }
     setUser(currentUser);
+
+    // Check for imported notes from study notes page
+    const importedNotes = sessionStorage.getItem('importedNotes');
+    if (importedNotes) {
+      setNotes(importedNotes);
+      setHasImportedNotes(true);
+      // Clear the session storage after loading
+      sessionStorage.removeItem('importedNotes');
+      toast.success('Study notes imported successfully!');
+    }
   }, [router]);
+
+  const handleClearNotes = () => {
+    setNotes('');
+    setHasImportedNotes(false);
+    toast.info('Notes cleared');
+  };
 
   const handleGenerateQuiz = async () => {
     if (!notes.trim()) {
@@ -158,19 +177,46 @@ export default function CreateQuizPage() {
             {/* Notes Input */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <FileText className="w-5 h-5 text-blue-600" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      Study Notes
+                    </h2>
+                    {hasImportedNotes && (
+                      <div className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                        <CheckCircle className="w-4 h-4" />
+                        Imported from saved notes
+                      </div>
+                    )}
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    Study Notes
-                  </h2>
+                  
+                  {notes.length > 0 && (
+                    <button
+                      onClick={handleClearNotes}
+                      className="flex items-center gap-2 text-gray-500 hover:text-red-600 text-sm transition-colors"
+                      disabled={isGenerating}
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Clear Notes
+                    </button>
+                  )}
                 </div>
                 
                 <textarea
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Paste your study notes here... (minimum 100 characters)"
+                  onChange={(e) => {
+                    setNotes(e.target.value);
+                    // Remove the imported flag if user starts typing new content
+                    if (hasImportedNotes && e.target.value !== notes) {
+                      setHasImportedNotes(false);
+                    }
+                  }}
+                  placeholder="Paste your study notes here... (minimum 100 characters)
+
+You can also click 'Use for Quiz' on any saved study note to import it here automatically."
                   className="w-full h-96 p-4 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   disabled={isGenerating}
                 />
@@ -185,6 +231,22 @@ export default function CreateQuizPage() {
                     </span>
                   )}
                 </div>
+
+                {/* Helper text for importing notes */}
+                {notes.length === 0 && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Tip:</strong> You can import notes from your saved study notes by going to the{' '}
+                      <button
+                        onClick={() => router.push('/study-notes')}
+                        className="text-blue-600 hover:text-blue-800 underline font-medium"
+                      >
+                        Study Notes page
+                      </button>
+                      {' '}and clicking "Use for Quiz" on any note.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -243,6 +305,9 @@ export default function CreateQuizPage() {
                       <option value={10}>10 Questions</option>
                       <option value={15}>15 Questions</option>
                       <option value={20}>20 Questions</option>
+                      <option value={30}>30 Questions</option>
+                      <option value={50}>50 Questions</option>
+                      <option value={100}>100 Questions</option>
                     </select>
                   </div>
 
@@ -308,6 +373,8 @@ export default function CreateQuizPage() {
                   </>
                 )}
               </button>
+
+              
             </div>
           </div>
         </div>

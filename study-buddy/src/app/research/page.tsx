@@ -15,7 +15,9 @@ import {
   CheckCircle,
   FileText,
   History,
-  ArrowRight
+  ArrowRight,
+  Copy,
+  Check
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -29,6 +31,7 @@ export default function ResearchPage() {
   const [showSaveOptions, setShowSaveOptions] = useState(false);
   const [noteTitle, setNoteTitle] = useState('');
   const [recentRequests, setRecentRequests] = useState<ResearchRequest[]>([]);
+  const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
     const currentUser = StorageManager.getUser();
@@ -42,6 +45,24 @@ export default function ResearchPage() {
     const requests = StorageManager.getResearchRequests();
     setRecentRequests(requests.slice(0, 5)); // Show last 5 requests
   }, [router]);
+
+  const handleCopyNotes = async () => {
+    if (!studyNotes) return;
+
+    try {
+      await navigator.clipboard.writeText(studyNotes);
+      setIsCopied(true);
+      toast.success('Notes copied to clipboard!');
+      
+      // Reset the copy state after 2 seconds
+      setTimeout(() => {
+        setIsCopied(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy notes:', error);
+      toast.error('Failed to copy notes');
+    }
+  };
 
   const handleResearch = async () => {
     if (!query.trim()) {
@@ -62,6 +83,7 @@ export default function ResearchPage() {
     setIsResearching(true);
     setStudyNotes('');
     setShowSaveOptions(false);
+    setIsCopied(false); // Reset copy state
 
     // Create and store research request
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -313,7 +335,7 @@ export default function ResearchPage() {
                     {isResearching ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Researching... (This may take up to 1 hour)
+                        Researching...
                       </>
                     ) : (
                       <>
@@ -331,7 +353,7 @@ export default function ResearchPage() {
                         <span className="font-medium">Research in progress</span>
                       </div>
                       <p className="text-yellow-700 text-sm mt-1">
-                        The AI is researching your topic. This process can take up to 1 hour. 
+                        The AI is researching your topic. 
                         Please be patient and don't close this tab.
                       </p>
                     </div>
@@ -351,15 +373,38 @@ export default function ResearchPage() {
                         Generated Study Notes
                       </h2>
                     </div>
-                    {showSaveOptions && (
+                    <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setShowSaveOptions(!showSaveOptions)}
-                        className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2"
+                        onClick={handleCopyNotes}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                          isCopied 
+                            ? 'bg-green-100 text-green-700 border border-green-200' 
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                        }`}
+                        title="Copy notes to clipboard"
                       >
-                        <Save className="w-4 h-4" />
-                        Save Notes
+                        {isCopied ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            Copy
+                          </>
+                        )}
                       </button>
-                    )}
+                      {showSaveOptions && (
+                        <button
+                          onClick={() => setShowSaveOptions(!showSaveOptions)}
+                          className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+                        >
+                          <Save className="w-4 h-4" />
+                          Save Notes
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Save Options */}
@@ -420,7 +465,7 @@ export default function ResearchPage() {
                       <Clock className="w-5 h-5 text-purple-600" />
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      Current Request
+                      Current Research
                     </h3>
                   </div>
 
@@ -458,7 +503,7 @@ export default function ResearchPage() {
                     <History className="w-5 h-5 text-orange-600" />
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    Recent Requests
+                    Recent Research
                   </h3>
                 </div>
 
@@ -523,8 +568,8 @@ export default function ResearchPage() {
                 </h3>
                 <div className="space-y-2 text-sm text-gray-600">
                   <p>• Be specific with your queries for better results</p>
-                  <p>• Research can take up to 1 hour - please be patient</p>
-                  <p>• Save important notes for easy access later</p>
+                  <p>• Researching takes a some minute - please be patient</p>
+                  <p>• Copy notes to use elsewhere or save for later</p>
                   <p>• Use saved notes to create quizzes</p>
                 </div>
               </div>
