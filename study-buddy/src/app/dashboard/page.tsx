@@ -240,7 +240,7 @@ export default function DashboardPage() {
                             {note.title}
                           </h3>
                           <p className="text-sm text-gray-600">
-                            {note.subject}  
+                      
                             Created {new Date(note.createdAt).toLocaleDateString()}
                           </p>
                         </div>
