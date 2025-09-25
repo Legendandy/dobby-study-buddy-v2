@@ -246,7 +246,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="text-right flex-shrink-0">
                           <div className="text-sm font-medium text-gray-500">
-                            {note.type === 'research' ? '📚' : '📝'}
+                            
                           </div>
                         </div>
                       </div>

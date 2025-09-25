@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { StorageManager } from '@/lib/storage';
+import { useToast } from '@/components/ui/ToastProvider';
 import type { User, QuizSettings } from '@/lib/types';
 import { 
   FileText, 
@@ -62,11 +63,13 @@ export default function CreateQuizPage() {
     }
   }, [router]);
 
-  const handleClearNotes = () => {
-    setNotes('');
-    setHasImportedNotes(false);
-    toast.info('Notes cleared');
-  };
+  const { showToast } = useToast();
+
+const handleClearNotes = () => {
+  setNotes('');
+  setHasImportedNotes(false);
+  showToast('info', 'Notes cleared'); 
+};
 
   const handleGenerateQuiz = async () => {
     if (!notes.trim()) {
