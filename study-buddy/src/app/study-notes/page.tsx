@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
 import { StorageManager } from '@/lib/storage';
 import type { User, StudyNote } from '@/lib/types';
@@ -9,6 +10,7 @@ import {
   BookOpen, 
   Search,
   Calendar,
+  ArrowLeft,
   Trash2,
   Edit3,
   Plus,
@@ -124,6 +126,17 @@ export default function StudyNotesPage() {
       
       <div className="flex-1 p-8">
         <div className="max-w-7xl mx-auto">
+
+          <div className="mb-6">
+            <Link 
+              href="/dashboard"
+              className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeft size={20} className="mr-2" />
+              Back to Dashboard
+            </Link>
+          </div>
+
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
