@@ -568,7 +568,7 @@ export default function ResearchPage() {
                 </h3>
                 <div className="space-y-2 text-sm text-gray-600">
                   <p>• Be specific with your queries for better results</p>
-                  <p>• Researching takes a some minute - please be patient</p>
+                  <p>• Researching takes a some minute, please be patient. If you get an error, kindly try again</p>
                   <p>• Copy notes to use elsewhere or save for later</p>
                   <p>• Use saved notes to create quizzes</p>
                 </div>
