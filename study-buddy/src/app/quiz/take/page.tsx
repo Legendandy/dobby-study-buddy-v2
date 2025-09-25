@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { StorageManager } from '@/lib/storage';
+import { Suspense } from 'react';
 import type { User, Question, QuizSettings } from '@/lib/types';
 import { 
   Clock, 
@@ -24,13 +25,14 @@ interface QuizData {
   quizId: string;
 }
 
-export default function TakeQuizPage() {
+function TakeQuizContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const quizId = searchParams?.get('id');
   const pageRef = useRef<HTMLDivElement>(null);
   const heartbeatRef = useRef<NodeJS.Timeout>();
   const visibilityCheckRef = useRef<NodeJS.Timeout>();
+
 
   const [user, setUser] = useState<User | null>(null);
   const [quizData, setQuizData] = useState<QuizData | null>(null);
@@ -916,5 +918,20 @@ export default function TakeQuizPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function TakeQuizPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading quiz...</p>
+        </div>
+      </div>
+    }>
+      <TakeQuizContent />
+    </Suspense>
   );
 }
