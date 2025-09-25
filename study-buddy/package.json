@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "js-cookie": "^3.0.5",
-    "lucide-react": "^0.244.0",
+    "lucide-react": "^0.544.0",
     "next": "^15.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
