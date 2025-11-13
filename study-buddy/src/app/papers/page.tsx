@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import Link from 'next/link';
 import { StorageManager } from '@/lib/storage';
-import type { User } from '@/lib/types';
+import type { User, StudyNote } from '@/lib/types';
 import { 
   Search, 
   BookOpen, 
@@ -18,9 +18,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
-  Eye
+  Eye,
+  Save
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+// CHANGE THIS LINE - Use your custom toast hook instead of react-hot-toast
+import { useToast } from '@/components/ui/ToastProvider'; // Update path if needed
 
 interface Paper {
   id: string;
@@ -55,6 +57,7 @@ interface Paper {
 
 export default function ScientificPapersPage() {
   const router = useRouter();
+  const { showToast } = useToast(); // Add this line
   const [user, setUser] = useState<User | null>(null);
   const [query, setQuery] = useState('');
   const [papers, setPapers] = useState<Paper[]>([]);
@@ -78,7 +81,8 @@ export default function ScientificPapersPage() {
 
   const handleSearch = async (page = 1) => {
     if (!query.trim()) {
-      toast.error('Please enter a search query!');
+      // CHANGE: toast.error -> showToast
+      showToast('error', 'Please enter a search query!');
       return;
     }
 
@@ -94,10 +98,7 @@ export default function ScientificPapersPage() {
         sort: sortBy
       });
 
-      // Add filters
       const filters: string[] = [];
-      
-      // Always filter for English language papers
       filters.push('language:en');
       
       if (filterYear) {
@@ -123,13 +124,62 @@ export default function ScientificPapersPage() {
       setTotalPages(result.meta.totalPages);
       setTotalResults(result.meta.total);
       
-      toast.success(`Found ${result.meta.total.toLocaleString()} papers!`);
+      // CHANGE: toast.success -> showToast
+      showToast('success', `Found ${result.meta.total.toLocaleString()} papers!`);
     } catch (error) {
       console.error('Search error:', error);
-      toast.error('Failed to search papers. Please try again.');
+      // CHANGE: toast.error -> showToast
+      showToast('error', 'Failed to search papers. Please try again.');
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleSavePaper = (paper: Paper) => {
+    if (!user) return;
+
+    const noteContent = `# ${paper.title}
+
+**Authors:** ${paper.authors.map(a => a.name).join(', ')}${paper.authorCount > 5 ? ` and ${paper.authorCount - 5} more` : ''}
+
+**Journal:** ${paper.journal}
+**Year:** ${paper.year}
+**Citations:** ${paper.citationCount.toLocaleString()}
+**Type:** ${paper.type}
+**Open Access:** ${paper.isOpenAccess ? 'Yes' : 'No'}
+
+## Abstract
+
+${paper.fullAbstract || paper.abstract || 'No abstract available.'}
+
+## Key Concepts
+
+${paper.concepts.map(c => `- ${c.name} (${c.score}% relevance)`).join('\n')}
+
+${paper.sdgs.length > 0 ? `## UN Sustainable Development Goals\n\n${paper.sdgs.map(s => `- ${s.name} (${s.score}% relevance)`).join('\n')}` : ''}
+
+## Links
+
+${paper.doi ? `- DOI: https://doi.org/${paper.doi}` : ''}
+- OpenAlex: ${paper.url}
+${paper.pdfUrl ? `- PDF: ${paper.pdfUrl}` : ''}
+
+---
+*Saved from Scientific Papers Research on ${new Date().toLocaleDateString()}*`;
+
+    const studyNote: StudyNote = {
+      id: `paper_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title: paper.title,
+      content: noteContent,
+      query: query.trim(),
+      userId: user.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    StorageManager.addStudyNote(studyNote);
+    // CHANGE: toast.success -> showToast
+    showToast('success', 'Paper saved to study notes!');
   };
 
   const handlePageChange = (newPage: number) => {
@@ -155,7 +205,7 @@ export default function ScientificPapersPage() {
 
       <div className="flex-1 p-8">
         <div className="max-w-7xl mx-auto">
-            <div className="mb-6">
+          <div className="mb-6">
             <Link 
               href="/dashboard"
               className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
@@ -164,7 +214,7 @@ export default function ScientificPapersPage() {
               Back to Dashboard
             </Link>
           </div>
-          {/* Header */}
+
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Scientific Papers Research
@@ -175,9 +225,7 @@ export default function ScientificPapersPage() {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Search Panel */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Search Bar */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 bg-blue-100 rounded-lg">
@@ -218,7 +266,6 @@ export default function ScientificPapersPage() {
                     </button>
                   </div>
 
-                  {/* Filters */}
                   <div className="flex flex-wrap gap-3 pt-2 border-t border-gray-200">
                     <select
                       value={sortBy}
@@ -259,7 +306,6 @@ export default function ScientificPapersPage() {
                 </div>
               </div>
 
-              {/* Results */}
               {isSearching ? (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                   <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
@@ -315,21 +361,33 @@ export default function ScientificPapersPage() {
                           {paper.abstract || 'No abstract available.'}
                         </p>
 
-                        <div className="flex flex-wrap gap-2">
-                          {paper.concepts.slice(0, 3).map((concept, idx) => (
-                            <span
-                              key={idx}
-                              className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium"
-                            >
-                              {concept.name}
-                            </span>
-                          ))}
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-wrap gap-2">
+                            {paper.concepts.slice(0, 3).map((concept, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium"
+                              >
+                                {concept.name}
+                              </span>
+                            ))}
+                          </div>
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSavePaper(paper);
+                            }}
+                            className="flex items-center gap-1 text-blue-600 hover:text-blue-700 font-medium text-sm"
+                          >
+                            <Save className="w-4 h-4" />
+                            Save
+                          </button>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Pagination */}
                   {totalPages > 1 && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
                       <div className="flex items-center justify-between">
@@ -367,7 +425,6 @@ export default function ScientificPapersPage() {
               ) : null}
             </div>
 
-            {/* Sidebar - Paper Details */}
             <div>
               {selectedPaper ? (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 sticky top-8">
@@ -467,6 +524,14 @@ export default function ScientificPapersPage() {
                           Download PDF
                         </button>
                       )}
+                      
+                      <button
+                        onClick={() => handleSavePaper(selectedPaper)}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                      >
+                        <Save className="w-4 h-4" />
+                        Save to Study Notes
+                      </button>
                     </div>
                   </div>
                 </div>
