@@ -21,7 +21,7 @@ import {
   Eye,
   Save
 } from 'lucide-react';
-// CHANGE THIS LINE - Use your custom toast hook instead of react-hot-toast
+
 import { useToast } from '@/components/ui/ToastProvider'; // Update path if needed
 
 interface Paper {
