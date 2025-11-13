@@ -7,7 +7,8 @@ import {
   Home,
   User, 
   Settings, 
-  History, 
+  History,
+  Globe2, 
   FileText,
   Trophy, 
   LogOut,
@@ -44,6 +45,7 @@ export default function Sidebar() {
   const menuItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
     { href: '/study-notes', label: 'Study Notes', icon: FileText },
+    { href: '/papers', label: 'Scientific Papers Research', icon: Globe2 },
     { href: '/history', label: 'Quiz History', icon: History },
     { href: '/profile', label: 'Profile', icon: User },
     { href: '/settings', label: 'Settings', icon: Settings },
